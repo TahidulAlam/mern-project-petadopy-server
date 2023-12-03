@@ -7,14 +7,15 @@
     "moment": "^2.29.4",
     "mongodb": "^6.3.0",
     "mongoose": "^8.0.1",
-    "react-icons": "^4.12.0"
+    "react-icons": "^4.12.0",
+    "stripe": "^14.7.0"
   },
   "name": "petadopy-backend",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
