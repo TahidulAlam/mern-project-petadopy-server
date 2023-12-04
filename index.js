@@ -10,7 +10,8 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://localhost:5174"],
+  // origin: ["http://localhost:5173", "http://localhost:5174"],
+  origin: ["https://petadopy.web.app", "https://petadopy.firebaseapp.com"],
   credentials: true,
   optionSuccessStatus: 200,
 };
@@ -34,6 +35,17 @@ async function run() {
     const donatesCollection = petadopyDB.collection("donatesCollection");
     const petcategories = petadopyDB.collection("petcategories");
 
+    app.post("/jwt", async (req, res) => {
+      try {
+        const user = req.body;
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+          expiresIn: "1h",
+        });
+        res.send({ token });
+      } catch (error) {
+        console.log(error);
+      }
+    });
     const verifyToken = (req, res, next) => {
       if (!req.headers.authorization) {
         return res.status(401).send({ message: " forbidden access" });
@@ -51,19 +63,20 @@ async function run() {
       const email = req.decoded?.email;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
+      console.log(user);
       const isAdmin = user?.role === "admin";
+      console.log(isAdmin);
       if (!isAdmin) {
         return res.status(403).send({ message: "forbidden access" });
       }
       next();
     };
-    app.post("/jwt", async (req, res) => {
+
+    //all user verifyToken, verifyAdmin,
+    app.get("/api/users", async (req, res) => {
       try {
-        const user = req.body;
-        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-          expiresIn: "1h",
-        });
-        res.send({ token });
+        const result = await usersCollection.find().toArray();
+        res.send(result);
       } catch (error) {
         console.log(error);
       }
@@ -82,17 +95,8 @@ async function run() {
         console.log(error);
       }
     });
-    //all user
-    app.get("/api/users", verifyToken, verifyAdmin, async (req, res) => {
-      try {
-        const result = await usersCollection.find().toArray();
-        res.send(result);
-      } catch (error) {
-        console.log(error);
-      }
-    });
     //user rule cheak
-    app.get("/api/users/:email", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/api/users/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: "unauthorised access" });
@@ -102,31 +106,26 @@ async function run() {
 
       let admin = false;
       if (user) {
-        admin = user?.role === "admin";
+        admin = user.role === "admin";
       }
       res.send({ admin });
     });
     //user rule set
-    app.patch(
-      "/api/users/admin/:id",
-      verifyToken,
-      verifyAdmin,
-      async (req, res) => {
-        try {
-          const id = req.params.id;
-          const filter = { _id: new ObjectId(id) };
-          const updateDoc = {
-            $set: {
-              role: "admin",
-            },
-          };
-          const result = await usersCollection.updateOne(filter, updateDoc);
-          res.send(result);
-        } catch (error) {
-          console.log(error);
-        }
+    app.patch("/api/users/admin/:id", verifyToken, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await usersCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
       }
-    );
+    });
     //user delete
     app.delete("/api/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       try {
@@ -142,7 +141,7 @@ async function run() {
     app.get("/api/category", async (req, res) => {
       try {
         const result = await petcategories.find().toArray();
-        console.log(result);
+
         res.json({
           result,
           success: true,
@@ -292,84 +291,7 @@ async function run() {
         console.log(error);
       }
     });
-    // app.patch("/api/adopt/:id", async (req, res) => {
-    //   try {
-    //     // const defaultData = req.body;
-    //     const id = req.params.id;
-    //     console.log(id);
-    //     // const filter = { _id: new ObjectId(id) };
-    //     const filterNew = { _id: id };
-    //     console.log(filterNew);
-    //     const updatedDoc = {
-    //       $set: {
-    //         adopted: true,
-    //       },
-    //     };
-    //     console.log(updatedDoc);
-    //     const result = await petlists.updateOne(filterNew, updatedDoc);
-    //     console.log(result);
-    //     res.send(result);
-    //   } catch (error) {
-    //     console.log(error);
-    //   }
-    // });
-    // app.patch("/api/adopt/:id", async (req, res) => {
-    //   try {
-    //     const id = req.params.id;
-    //     console.log("Received id:", id);
-    //     const filter = { _id: id };
-    //     console.log(filter);
-    //     const updatedDoc = {
-    //       $set: {
-    //         adopted: true,
-    //       },
-    //     };
-    //     const result = await petlists.updateOne(filter, updatedDoc);
-    //     console.log(result);
-    //     res.send(result);
-    //     // if (result.modifiedCount === 1) {
-    //     //   res.send({ success: true, message: "Document updated successfully" });
-    //     // } else {
-    //     //   res
-    //     //     .status(500)
-    //     //     .send({ success: false, message: "Failed to update document" });
-    //     // }
-    //   } catch (error) {
-    //     console.log(error);
-    //     res
-    //       .status(500)
-    //       .send({ success: false, message: "Internal server error" });
-    //   }
-    // });
-    // app.patch("/api/adopt/:petIds", verifyToken, async (req, res) => {
-    //   try {
-    //     const id = req.params.petIds;
-    //     console.log("Received id:", id);
-    //     const filter = { _id: id };
-    //     console.log("Filter:", filter);
-    //     const updatedDoc = {
-    //       $set: {
-    //         adopted: true,
-    //       },
-    //     };
 
-    //     const result = await petlists.updateOne(filter, updatedDoc);
-    //     console.log("Update Result:", result);
-
-    //     if (result.modifiedCount === 1) {
-    //       res.send({ success: true, message: "Document updated successfully" });
-    //     } else {
-    //       res
-    //         .status(500)
-    //         .send({ success: false, message: "Failed to update document" });
-    //     }
-    //   } catch (error) {
-    //     console.log(error);
-    //     res
-    //       .status(500)
-    //       .send({ success: false, message: "Internal server error" });
-    //   }
-    // });
     app.patch("/api/adopt/:petIds", verifyToken, async (req, res) => {
       try {
         const id = req.params.petIds;
@@ -700,19 +622,30 @@ async function run() {
     });
     app.get("/api/mydonation/:email", async (req, res) => {
       try {
-        const query = { email: req.query.email };
+        const query = { email: req.params.email };
         const cursor = await donatesCollection.find(query);
         const result = await cursor.toArray();
-        const total = await donatesCollection.countDocuments(query);
         res.send({
-          total,
           result,
         });
       } catch (error) {
         console.log(error);
+        res.status(500).send({
+          error: "Internal Server Error",
+        });
       }
     });
-
+    app.delete("/api/mydonation/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await donatesCollection.deleteOne(query);
+        console.log(result);
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+      }
+    });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
